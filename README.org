@@ -1,0 +1,5 @@
+
+* spotless.py
+
+A python program for removing cosmic rays, stitching artifacts, and (optionally) stars from an astronomical image or spectrum
+
