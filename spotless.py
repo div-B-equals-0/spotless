@@ -39,6 +39,8 @@ parser.add_argument("--ddmax", type=int, default=10,
 parser.add_argument("--data-range", type=float, default=None, 
                     nargs=2, metavar=("MIN", "MAX"),  
                     help="Range for data scaling")
+parser.add_argument("--use-log-scale", action="store_true",
+                    help="Use logarithmic data scaling")
 parser.add_argument("--segment-pars", type=float, default=(0.0, 1.0),
                     nargs=2, metavar=("LO", "HI"), help="""For
                     'segment' method only: thresholds of scaled data
@@ -89,12 +91,25 @@ else:
         datamin, datamax = inhdu.data.min(), inhdu.data.max()
     else:
         datamin, datamax = cmd_args.data_range
-    # Scale and top-tail the data
-    scaled_data = (inhdu.data - datamin) / (datamax - datamin)
+    # Scale so that [datamin, datamax] -> [0, 1]
+    if cmd_args.use_log_scale:
+        # logarithmic scale 
+        scaled_data = np.log10(inhdu.data/datamin)/np.log10(datamax/datamin)
+    else:
+        # linear scale
+        scaled_data = (inhdu.data - datamin) / (datamax - datamin)
+    # Clip all values outside of the scaled range [0, 1]
     scaled_data[scaled_data < 0.0] = 0.0
     scaled_data[scaled_data > 1.0] = 1.0
+    # Any NaNs or Infs also get clamped to the minimum value
+    scaled_data[~np.isfinite(scaled_data)] = 0.0
     if cmd_args.verbose:
         print "Data scaled to range [{:.2e}, {:.2e}]".format(datamin, datamax)
+
+    # Save the elevation map to a FITS file for debugging purposes
+    outhdu = pyfits.PrimaryHDU(scaled_data)
+    outhdu.writeto(outprefix + "-scaled.fits", clobber=True)
+
     # 8-neighbor structuring element
     square3 = skimage.morphology.square(3)
     # 4-neighbor structuring element
@@ -138,6 +153,11 @@ else:
         elevation_map = skimage.filter.sobel(scaled_data)
         if cmd_args.verbose:
             print "Elevation map calculation via Sobel gradient filter complete"
+
+        # Save the elevation map to a FITS file for debugging purposes
+        outhdu = pyfits.PrimaryHDU(elevation_map)
+        outhdu.writeto(outprefix + "-sobel.fits", clobber=True)
+
         # Now we mark pixels that are definitely good or bad
         markers = np.zeros_like(scaled_data, dtype=np.uint8)
         loval, hival = cmd_args.segment_pars
@@ -146,6 +166,11 @@ else:
         # Then we segment the image by growing out from the marked
         # values
         segmentation = skimage.morphology.watershed(elevation_map, markers)
+
+        # Save the segmentation to a FITS file for debugging purposes
+        outhdu = pyfits.PrimaryHDU(segmentation)
+        outhdu.writeto(outprefix + "-segments.fits", clobber=True)
+
         if cmd_args.verbose:
             print "Segmentation via watershed filter complete"
         # The rest is the same as with the edge detection method
@@ -163,7 +188,7 @@ else:
         # Also add into bad pixels all negative pixels
         badpix = badpix | (inhdu.data < 0.0)
         if cmd_args.verbose:
-            print "All negative values higher also added to bad pixels"
+            print "All negative values also added to bad pixels"
 
 
 if cmd_args.verbose:
@@ -206,7 +231,7 @@ for i, (yslice, xslice) in enumerate(objects):
     # Also require that box is not too elongated
     aspect = float(max(mx,my))/min(mx,my)
     isCompact = isCompact and aspect < 1.3
-    isFilament = fillfactor <= 0.3
+    isFilament = fillfactor <= 0.3 or max(mx,my) > 5*min(mx,my)
 
     # We may not have enough good pixels in the
     # enclosing rectangle, so expand it by one pixel in all 4
