@@ -1,12 +1,14 @@
-import pyfits
-import numpy as np
-import scipy.ndimage as ndi
+import sys
 import os.path
 import argparse
+
+import numpy as np
+import astropy.io.fits as pyfits
+import scipy.ndimage as ndi
 import skimage.filter
 import skimage.morphology
 from skimage.morphology import erosion, dilation
-import sys
+import pyregion
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -64,6 +66,9 @@ parser.add_argument("--allow-shadows", action="store_true",
                     image!)""")
 parser.add_argument("--clip-negative", action="store_true",
                     help="""Also remove all negative pixels""")
+parser.add_argument("--exclude-regions-from-file", type=str, default=None,
+                    help="""Read DS9 regions from a file, which are to
+                    be marked as definite good pixels""" )
 parser.add_argument("--verbose", "-v", action="store_true", 
                     help="Print informative progress messages")
 
@@ -191,6 +196,14 @@ else:
             print "All negative values also added to bad pixels"
 
 
+# reset status from bad -> good in all ring-fenced regions
+if cmd_args.exclude_regions_from_file:
+    regions = pyregion.open(cmd_args.exclude_regions_from_file)
+    mask = regions.get_mask(hdu=inhdu)
+    badpix = badpix & ~mask
+    if cmd_args.verbose:
+        print "Regions from {} removed from bad pixels".format(cmd_args.exclude_regions_from_file)
+
 if cmd_args.verbose:
     nbad = badpix.sum()
     print "Number of bad pixels: {} ({:.3f}% of total)".format(nbad, float(100*nbad)/inhdu.data.size)
@@ -202,6 +215,7 @@ outhdu.writeto(outprefix + "-badpix-candidates.fits", clobber=True)
 
 if cmd_args.onlybadpix:
     sys.exit()                  # In this case, our work is done
+
 
 ## Now, label a list of contiguous regions of bad pixels (objects)
 # Use 8 neighbours (including corners) instead of the default 4
