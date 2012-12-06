@@ -69,6 +69,9 @@ parser.add_argument("--clip-negative", action="store_true",
 parser.add_argument("--exclude-regions-from-file", type=str, default=None,
                     help="""Read DS9 regions from a file, which are to
                     be marked as definite good pixels""" )
+parser.add_argument("--include-regions-from-file", type=str, default=None,
+                    help="""Read DS9 regions from a file, which are to
+                    be marked as definite bad pixels""" )
 parser.add_argument("--verbose", "-v", action="store_true", 
                     help="Print informative progress messages")
 
@@ -204,6 +207,14 @@ if cmd_args.exclude_regions_from_file:
     if cmd_args.verbose:
         print "Regions from {} removed from bad pixels".format(cmd_args.exclude_regions_from_file)
 
+# reset status from good -> bad in all specially earmarked regions
+if cmd_args.include_regions_from_file:
+    regions = pyregion.open(cmd_args.include_regions_from_file)
+    mask = regions.get_mask(hdu=inhdu)
+    badpix = badpix | mask
+    if cmd_args.verbose:
+        print "Regions from {} added to bad pixels".format(cmd_args.include_regions_from_file)
+
 if cmd_args.verbose:
     nbad = badpix.sum()
     print "Number of bad pixels: {} ({:.3f}% of total)".format(nbad, float(100*nbad)/inhdu.data.size)
@@ -226,6 +237,7 @@ outhdu.writeto(outprefix + "-labels.fits", clobber=True)
 objects = ndi.find_objects(labels)
 if cmd_args.verbose:
     print "Number of distinct bad pixel objects found:", len(objects)
+
 
 ## For each object, replace bad pixels with an average of nearby good ones
 nskipped = 0
@@ -281,6 +293,7 @@ for i, (yslice, xslice) in enumerate(objects):
         # If this one is a keeper, then replace all the bad pixels in
         # box with the average non-bad value in same box
         inhdu.data[box] = np.where(badpix[box], replace_value, inhdu.data[box])
+
 
 # Write out the final set of bad pixels
 outhdu = pyfits.PrimaryHDU(badpix.astype(int))
