@@ -1,10 +1,16 @@
 import sys
 import os.path
 import argparse
-
 import numpy as np
-import astropy.io.fits as pyfits
 import scipy.ndimage as ndi
+
+try:
+    # Prefer the astropy version of fits library
+    import astropy.io.fits as pyfits
+except ImportError:
+    # But fall back to pyfits version if not found
+    import pyfits
+
 import skimage.filter
 import skimage.morphology
 from skimage.morphology import erosion, dilation
@@ -74,13 +80,42 @@ parser.add_argument("--include-regions-from-file", type=str, default=None,
                     be marked as definite bad pixels""" )
 parser.add_argument("--verbose", "-v", action="store_true", 
                     help="Print informative progress messages")
+parser.add_argument("--debug", "-d", action="store_true", 
+                    help="Save auxiliary images of intermediate steps")
+parser.add_argument("--multi-hdu", "-m", action="store_true", 
+                    help="""Work in multi-HDU mode.  
+This assumes that the image is in the "SCI" HDU in the input file (the argument --hdu-index is ignored).  
+All additional HDUs in the input file are copied through to the output file.
+Only one output file is written, all auxilliary arrays 
+("edges", "labels", "badpix", etc) are written as additional HDUs in the same file.
+""")
 
 
 cmd_args = parser.parse_args()
 
-inhdu = pyfits.open(cmd_args.fitsfile + ".fits")[cmd_args.hdu_index]
+if cmd_args.multi_hdu:
+    hdulist = pyfits.open(cmd_args.fitsfile + ".fits")
+    inhdu = hdulist["SCI"]
+    outprefix = "{fitsfile}-{output_id}".format(**vars(cmd_args))
+else:
+    inhdu = pyfits.open(cmd_args.fitsfile + ".fits")[cmd_args.hdu_index]
+    outprefix = "{fitsfile}-cleaned-{method}{output_id}".format(**vars(cmd_args))
 
-outprefix = "{fitsfile}-cleaned-{method}{output_id}".format(**vars(cmd_args))
+inhdu.header["CRREJECT"] = (True, "Cosmic ray rejection by spotless.py")
+inhdu.header["CRMETHOD"] = (cmd_args.method, "CR rejection method")
+
+def save_aux_image(image, label):
+    """
+    Save an auxiliary image, such as the bad pixel mask.
+
+    If in multi-HDU mode, just append it to the list of HDUs to be written later.
+    Otherwise, actually write it to a file.
+    """
+    if cmd_args.multi_hdu:
+        hdulist.append(pyfits.ImageHDU(image, name=label))
+    else:
+        pyfits.PrimaryHDU(image).writeto(outprefix + "-" + label + ".fits", clobber=True)
+
 
 
 if cmd_args.verbose:
@@ -113,10 +148,9 @@ else:
     scaled_data[~np.isfinite(scaled_data)] = 0.0
     if cmd_args.verbose:
         print "Data scaled to range [{:.2e}, {:.2e}]".format(datamin, datamax)
-
-    # Save the elevation map to a FITS file for debugging purposes
-    outhdu = pyfits.PrimaryHDU(scaled_data)
-    outhdu.writeto(outprefix + "-scaled.fits", clobber=True)
+    if cmd_args.debug:
+        # Save the elevation map to a FITS file for debugging purposes
+        save_aux_image(scaled_data, "scaled")
 
     # 8-neighbor structuring element
     square3 = skimage.morphology.square(3)
@@ -139,8 +173,8 @@ else:
                 print "Dilation of edges to 3 pixels complete"
 
         # Save the edges to a FITS file for debugging purposes
-        outhdu = pyfits.PrimaryHDU(edges.astype(int))
-        outhdu.writeto(outprefix + "-edges.fits", clobber=True)
+        if cmd_args.debug:
+            save_aux_image(edges.astype(int), "edges")
 
         badpix = ndi.binary_fill_holes(edges)
         if cmd_args.verbose:
@@ -163,8 +197,8 @@ else:
             print "Elevation map calculation via Sobel gradient filter complete"
 
         # Save the elevation map to a FITS file for debugging purposes
-        outhdu = pyfits.PrimaryHDU(elevation_map)
-        outhdu.writeto(outprefix + "-sobel.fits", clobber=True)
+        if cmd_args.debug:
+            save_aux_image(elevation_map, "sobel")
 
         # Now we mark pixels that are definitely good or bad
         markers = np.zeros_like(scaled_data, dtype=np.uint8)
@@ -176,8 +210,8 @@ else:
         segmentation = skimage.morphology.watershed(elevation_map, markers)
 
         # Save the segmentation to a FITS file for debugging purposes
-        outhdu = pyfits.PrimaryHDU(segmentation)
-        outhdu.writeto(outprefix + "-segments.fits", clobber=True)
+        if cmd_args.debug:
+            save_aux_image(segmentation, "segments")
 
         if cmd_args.verbose:
             print "Segmentation via watershed filter complete"
@@ -221,8 +255,8 @@ if cmd_args.verbose:
 
 
 # Save the bad pixels candidates (some of these may be rejected later)
-outhdu = pyfits.PrimaryHDU(badpix.astype(int))
-outhdu.writeto(outprefix + "-badpix-candidates.fits", clobber=True)
+if cmd_args.debug or cmd_args.onlybadpix:
+    save_aux_image(badpix.astype(int), "candidates")
 
 if cmd_args.onlybadpix:
     sys.exit()                  # In this case, our work is done
@@ -231,8 +265,8 @@ if cmd_args.onlybadpix:
 ## Now, label a list of contiguous regions of bad pixels (objects)
 # Use 8 neighbours (including corners) instead of the default 4
 labels, nlabels = ndi.label(badpix, structure=np.ones((3,3)))
-outhdu = pyfits.PrimaryHDU(labels)
-outhdu.writeto(outprefix + "-labels.fits", clobber=True)
+if cmd_args.debug:
+    save_aux_image(labels, "labels")
 ## Find slices corresponding to each labeled region
 objects = ndi.find_objects(labels)
 if cmd_args.verbose:
@@ -248,7 +282,7 @@ for i, (yslice, xslice) in enumerate(objects):
     my = yslice.stop - yslice.start
     # Object is deemed too large if both x and y sizes exceed dmax
     isTooBig = mx > cmd_args.dmax and my > cmd_args.dmax
-    isReallyTooBig = mx > cmd_args.ddmax and my > cmd_args.ddmax
+    isReallyTooBig =(mx > cmd_args.ddmax and my > cmd_args.ddmax) or (mx*my > 2*cmd_args.ddmax**2)
     # Object is deemed compact if more than a certain fraction of the
     # pixels in the enclosing rect are bad.  For a circle, this would be
     # pi/4 = 0.785
@@ -296,8 +330,7 @@ for i, (yslice, xslice) in enumerate(objects):
 
 
 # Write out the final set of bad pixels
-outhdu = pyfits.PrimaryHDU(badpix.astype(int))
-outhdu.writeto(outprefix + "-badpix.fits", clobber=True)
+save_aux_image(badpix.astype(int), "badpix")
 
 # Write out the table of object properties
 with open(outprefix + "-objects.tab", "w") as f:
@@ -313,4 +346,7 @@ if cmd_args.verbose:
     print "Replacement of bad pixels complete"
 
 ## Finally, write out the result to a new fits file
-inhdu.writeto(outprefix + ".fits", clobber=True)
+if cmd_args.multi_hdu:
+    hdulist.writeto(outprefix + ".fits", clobber=True)
+else:
+    inhdu.writeto(outprefix + ".fits", clobber=True)
