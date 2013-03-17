@@ -100,7 +100,11 @@ cmd_args = parser.parse_args()
 
 if cmd_args.multi_hdu:
     hdulist = pyfits.open(cmd_args.fitsfile + ".fits")
-    inhdu = hdulist["SCI"]
+    try:
+        inhdu = hdulist["SCI"]
+    except:
+        print "Warning: HDU 'SCI' not found, using the first one instead"
+        inhdu = hdulist[0]
     outprefix = "{fitsfile}-{output_id}".format(**vars(cmd_args))
 else:
     inhdu = pyfits.open(cmd_args.fitsfile + ".fits")[cmd_args.hdu_index]
@@ -249,21 +253,31 @@ else:
 
 # reset status from bad -> good in all ring-fenced regions
 if cmd_args.exclude_regions_from_file:
-    regions = pyregion.open(cmd_args.exclude_regions_from_file)
-    mask = regions.get_mask(hdu=inhdu)
-    badpix = badpix & ~mask
-    if cmd_args.verbose:
-        print "Regions from {} removed from bad pixels".format(
+    try:
+        regions = pyregion.open(cmd_args.exclude_regions_from_file)
+    except IOError:
+        print "Warning: Exclude file {} not found".format(
             cmd_args.exclude_regions_from_file)
+    else:
+        mask = regions.get_mask(hdu=inhdu)
+        badpix = badpix & ~mask
+        if cmd_args.verbose:
+            print "Regions from {} removed from bad pixels".format(
+                cmd_args.exclude_regions_from_file)
 
 # reset status from good -> bad in all specially earmarked regions
 if cmd_args.include_regions_from_file:
-    regions = pyregion.open(cmd_args.include_regions_from_file)
-    mask = regions.get_mask(hdu=inhdu)
-    badpix = badpix | mask
-    if cmd_args.verbose:
-        print "Regions from {} added to bad pixels".format(
+    try:
+        regions = pyregion.open(cmd_args.include_regions_from_file)
+    except IOError:
+        print "Warning: Include file {} not found".format(
             cmd_args.include_regions_from_file)
+    else:
+        force_bad_mask = regions.get_mask(hdu=inhdu)
+        badpix = badpix | force_bad_mask
+        if cmd_args.verbose:
+            print "Regions from {} added to bad pixels".format(
+                cmd_args.include_regions_from_file)
 
 if cmd_args.verbose:
     nbad = badpix.sum()
@@ -338,13 +352,17 @@ for i, (yslice, xslice) in enumerate(objects):
     if isSkipped:
         # Assume this object is a star or other "real" object
         # Undo all the bad pixels associated with this object
-        badpix[box][labels[box] == label] = False
-        # Then skip
+        if cmd_args.include_regions_from_file:
+            # EXCEPT for those that were explicitly set as bad by the user
+            badpix[box][labels[box] == label] = force_bad_mask[box][
+                labels[box] == label]
+        else:
+            badpix[box][labels[box] == label] = False
+            # Then skip
         nskipped += 1
-    else:
-        # If this one is a keeper, then replace all the bad pixels in
-        # box with the average non-bad value in same box
-        inhdu.data[box] = np.where(badpix[box], replace_value, inhdu.data[box])
+    # If this one is a keeper, then replace all the bad pixels in
+    # box with the average non-bad value in same box
+    inhdu.data[box] = np.where(badpix[box], replace_value, inhdu.data[box])
 
 
 # Write out the final set of bad pixels
