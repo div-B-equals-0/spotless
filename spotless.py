@@ -298,7 +298,7 @@ if cmd_args.onlybadpix:
 # Use 8 neighbours (including corners) instead of the default 4
 labels, nlabels = ndi.label(badpix, structure=np.ones((3, 3)))
 if cmd_args.debug:
-    save_aux_image(labels, "labels")
+    save_aux_image(labels.astype(int), "labels")
 ## Find slices corresponding to each labeled region
 objects = ndi.find_objects(labels)
 if cmd_args.verbose:
