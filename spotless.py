@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import argparse
 import numpy as np
@@ -103,7 +104,7 @@ if cmd_args.multi_hdu:
     try:
         inhdu = hdulist["SCI"]
     except:
-        print "Warning: HDU 'SCI' not found, using the first one instead"
+        print("Warning: HDU 'SCI' not found, using the first one instead")
         inhdu = hdulist[0]
     outprefix = "{fitsfile}-{output_id}".format(**vars(cmd_args))
 else:
@@ -131,8 +132,8 @@ def save_aux_image(image, label):
 
 
 if cmd_args.verbose:
-    print "Finding bad pixels by the '{method}' method".format(
-        **vars(cmd_args))
+    print("Finding bad pixels by the '{method}' method".format(
+        **vars(cmd_args)))
 
 ## First find the bad pixel mask
 if cmd_args.method == "thresh":
@@ -161,7 +162,7 @@ else:
     # Any NaNs or Infs also get clamped to the minimum value
     scaled_data[~np.isfinite(scaled_data)] = 0.0
     if cmd_args.verbose:
-        print "Data scaled to range [{:.2e}, {:.2e}]".format(datamin, datamax)
+        print("Data scaled to range [{:.2e}, {:.2e}]".format(datamin, datamax))
     if cmd_args.debug:
         # Save the elevation map to a FITS file for debugging purposes
         save_aux_image(scaled_data, "scaled")
@@ -177,14 +178,14 @@ else:
         edges = skimage.filter.canny(scaled_data, sigma=sig,
                                      low_threshold=lo, high_threshold=hi)
         if cmd_args.verbose:
-            print "Edge detection with Canny method complete"
+            print("Edge detection with Canny method complete")
         if cmd_args.thick_edges:
             # Make the edges 3-pix wide instead of 1
             edges = skimage.morphology.dilation(
                 edges.astype(np.uint8),
                 skimage.morphology.square(3)).astype(bool)
             if cmd_args.verbose:
-                print "Dilation of edges to 3 pixels complete"
+                print("Dilation of edges to 3 pixels complete")
 
         # Save the edges to a FITS file for debugging purposes
         if cmd_args.debug:
@@ -192,7 +193,7 @@ else:
 
         badpix = ndi.binary_fill_holes(edges)
         if cmd_args.verbose:
-            print "Filling of holes complete"
+            print("Filling of holes complete")
 
         # Now remove all lone 1-pixel edges by an erosion
         # followed by a dilation
@@ -210,8 +211,8 @@ else:
         # gradient of the image
         elevation_map = skimage.filter.sobel(scaled_data)
         if cmd_args.verbose:
-            print """Elevation map calculation via Sobel
-            gradient filter complete"""
+            print("Elevation map calculation via \
+            Sobel gradient filter complete")
 
         # Save the elevation map to a FITS file for debugging purposes
         if cmd_args.debug:
@@ -231,24 +232,24 @@ else:
             save_aux_image(segmentation, "segments")
 
         if cmd_args.verbose:
-            print "Segmentation via watershed filter complete"
+            print("Segmentation via watershed filter complete")
         # The rest is the same as with the edge detection method
         badpix = ndi.binary_fill_holes(segmentation-1)
         if cmd_args.verbose:
-            print "Filling of holes complete"
+            print("Filling of holes complete")
 
     if not cmd_args.threshold is None:
         # Also add into bad pixels all above the threshold
         badpix = badpix | (inhdu.data > cmd_args.threshold)
         if cmd_args.verbose:
-            print """All values higher than {:.2e}
-            also added to bad pixels""".format(cmd_args.threshold)
+            print("""All values higher than {:.2e}
+            also added to bad pixels""".format(cmd_args.threshold))
 
     if cmd_args.clip_negative:
         # Also add into bad pixels all negative pixels
         badpix = badpix | (inhdu.data < 0.0)
         if cmd_args.verbose:
-            print "All negative values also added to bad pixels"
+            print("All negative values also added to bad pixels")
 
 
 # reset status from bad -> good in all ring-fenced regions
@@ -256,33 +257,33 @@ if cmd_args.exclude_regions_from_file:
     try:
         regions = pyregion.open(cmd_args.exclude_regions_from_file)
     except IOError:
-        print "Warning: Exclude file {} not found".format(
-            cmd_args.exclude_regions_from_file)
+        print("Warning: Exclude file {} not found".format(
+            cmd_args.exclude_regions_from_file))
     else:
         mask = regions.get_mask(hdu=inhdu)
         badpix = badpix & ~mask
         if cmd_args.verbose:
-            print "Regions from {} removed from bad pixels".format(
-                cmd_args.exclude_regions_from_file)
+            print("Regions from {} removed from bad pixels".format(
+                cmd_args.exclude_regions_from_file))
 
 # reset status from good -> bad in all specially earmarked regions
 if cmd_args.include_regions_from_file:
     try:
         regions = pyregion.open(cmd_args.include_regions_from_file)
     except IOError:
-        print "Warning: Include file {} not found".format(
-            cmd_args.include_regions_from_file)
+        print("Warning: Include file {} not found".format(
+            cmd_args.include_regions_from_file))
     else:
         force_bad_mask = regions.get_mask(hdu=inhdu)
         badpix = badpix | force_bad_mask
         if cmd_args.verbose:
-            print "Regions from {} added to bad pixels".format(
-                cmd_args.include_regions_from_file)
+            print("Regions from {} added to bad pixels".format(
+                cmd_args.include_regions_from_file))
 
 if cmd_args.verbose:
     nbad = badpix.sum()
-    print "Number of bad pixels: {} ({:.3f}% of total)".format(
-        nbad, float(100*nbad)/inhdu.data.size)
+    print("Number of bad pixels: {} ({:.3f}% of total)".format(
+        nbad, float(100*nbad)/inhdu.data.size))
 
 
 # Save the bad pixels candidates (some of these may be rejected later)
@@ -301,7 +302,7 @@ if cmd_args.debug:
 ## Find slices corresponding to each labeled region
 objects = ndi.find_objects(labels)
 if cmd_args.verbose:
-    print "Number of distinct bad pixel objects found:", len(objects)
+    print("Number of distinct bad pixel objects found:", len(objects))
 
 
 ## For each object, replace bad pixels with an average of nearby good ones
@@ -380,8 +381,8 @@ with open(outprefix + "-objects.tab", "w") as f:
             + "\n")
 
 if cmd_args.verbose:
-    print "Number of objects skipped: ", nskipped
-    print "Replacement of bad pixels complete"
+    print("Number of objects skipped: ", nskipped)
+    print("Replacement of bad pixels complete")
 
 ## Finally, write out the result to a new fits file
 if cmd_args.multi_hdu:
