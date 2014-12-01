@@ -20,13 +20,15 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     description="""Remove cosmic rays and other bad pixels from an image""")
 
-parser.add_argument("fitsfile", type=str, help="""Name of image FITS
-                    file (sans extension)""")
-parser.add_argument("--hdu-index", type=int, default=0,
+parser.add_argument("fitsfile", type=str,
+                    help="""Name of input image FITS file (sans extension)""")
+# parser.add_argument("--hdu-index", type=int, default=0,
+#                     help="""Which HDU to use from the FITS file""")
+parser.add_argument("--hdu-name", type=str, default='SCI',
                     help="""Which HDU to use from the FITS file""")
-parser.add_argument("--output-id", type=str, default="", help="""Extra
-                    string to add to output filenames to aid in layer
-                    identification""")
+parser.add_argument("--output-id", type=str, default="cr",
+                    help="""Extra string to add to output filename to
+                    differentiate from the input file""")
 parser.add_argument("--method", choices=("thresh", "edge", "segment"),
                     default="edge",
                     help="Algorithm to use to find the bad pixels")
@@ -62,7 +64,7 @@ parser.add_argument("--edge-pars", type=float, default=(1.0, 0.1, 0.2),
  http://scikits-image.org/docs/dev/auto_examples/plot_canny.html
                     """)
 parser.add_argument("--thick-edges", action="store_true", help="""Make
-                    the edges be 3 pixels wide instaed of the default 1""")
+                    the edges be 3 pixels wide instead of the default 1""")
 parser.add_argument("--reject-filaments", action="store_true",
                     help="""Try to reject objects that look filamentary,
                     since they are probably not cosmic rays""")
@@ -83,18 +85,14 @@ parser.add_argument("--verbose", "-v", action="store_true",
                     help="Print informative progress messages")
 parser.add_argument("--debug", "-d", action="store_true",
                     help="Save auxiliary images of intermediate steps")
-parser.add_argument("--multi-hdu", "-m", action="store_true",
-                    help="""Work in multi-HDU mode.
-                    This assumes that the image is in the "SCI" HDU
-                    in the input file (the argument --hdu-index is
-                    ignored).
-                    All additional HDUs in the input file are copied
-                    through to the output file.
-                    Only one output file is written,
-                    all auxilliary arrays
-                    ("edges", "labels", "badpix", etc)
-                    are written as additional HDUs in the same file.
-                    """)
+parser.add_argument("--multi-hdu", "-m", action="store_true", default=True,
+                    help="""Only provided for backward compatibility 
+- this behavior is now the default.  Work in multi-HDU mode.  This
+assumes that the image is in the "SCI" HDU in the input file (the
+argument --hdu-index is ignored).  All additional HDUs in the input
+file are copied through to the output file.  Only one output file is
+written, all auxilliary arrays ("edges", "labels", "badpix", etc) are
+written as additional HDUs in the same file.  """)
 
 
 cmd_args = parser.parse_args()
@@ -102,9 +100,9 @@ cmd_args = parser.parse_args()
 if cmd_args.multi_hdu:
     hdulist = pyfits.open(cmd_args.fitsfile + ".fits")
     try:
-        inhdu = hdulist["SCI"]
+        inhdu = hdulist[cmd_args.hdu_name]
     except:
-        print("Warning: HDU 'SCI' not found, using the first one instead")
+        print("Warning: HDU '{}' not found, using the first one instead".format(cmd_args.hdu_name))
         inhdu = hdulist[0]
     outprefix = "{fitsfile}-{output_id}".format(**vars(cmd_args))
 else:
