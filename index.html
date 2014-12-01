@@ -7,7 +7,9 @@
 
     <link rel="stylesheet" href="stylesheets/styles.css">
     <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="javascripts/scale.fix.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
     <!--[if lt IE 9]>
     <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
@@ -17,10 +19,7 @@
       <header>
         <h1>Spotless</h1>
         <p>Remove cosmic rays and other artefacts from astronomical images</p>
-
         <p class="view"><a href="https://github.com/deprecated/spotless">View the Project on GitHub <small>deprecated/spotless</small></a></p>
-
-
         <ul>
           <li><a href="https://github.com/deprecated/spotless/zipball/master">Download <strong>ZIP File</strong></a></li>
           <li><a href="https://github.com/deprecated/spotless/tarball/master">Download <strong>TAR Ball</strong></a></li>
@@ -28,24 +27,260 @@
         </ul>
       </header>
       <section>
-        <h1>spotless.py</h1>
+        <div id="table-of-contents">
+<h2>
+<a id="table-of-contents" class="anchor" href="#table-of-contents" aria-hidden="true"><span class="octicon octicon-link"></span></a>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li>
+<a href="#sec-1">1. spotless.py</a>
+<ul>
+<li><a href="#sec-1-1">1.1. Compatibility and dependencies</a></li>
+<li><a href="#sec-1-2">1.2. Installation</a></li>
+<li>
+<a href="#sec-1-3">1.3. Usage</a>
+<ul>
+<li><a href="#sec-1-3-1">1.3.1. File handling</a></li>
+<li><a href="#sec-1-3-2">1.3.2. Specifying the pixel-rejection method to use</a></li>
+<li><a href="#sec-1-3-3">1.3.3. Pruning the list of bad pixel objects</a></li>
+<li><a href="#sec-1-3-4">1.3.4. Manually excluding and including regions</a></li>
+<li><a href="#sec-1-3-5">1.3.5. Which images are saved</a></li>
+<li><a href="#sec-1-3-6">1.3.6. Examples</a></li>
+</ul>
+</li>
+<li><a href="#sec-1-4">1.4. Command line reference</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+<p></p>
+</div>
+
+<h1>
+<a id="spotlesspy" class="anchor" href="#spotlesspy" aria-hidden="true"><span class="octicon octicon-link"></span></a>spotless.py<a id="sec-1" name="sec-1"></a>
+</h1>
 
 <p>A python program for removing cosmic rays, stitching artifacts, and (optionally) stars from an astronomical image or spectrum</p>
 
-<h1>Author</h1>
+<p>The cosmic ray removal process has three stages:</p>
 
-<p>William Henney</p>
+<ol>
+<li> Pixel rejection and grouping contiguous bad pixel regions into "objects"</li>
+<li> Pruning the list of objects in order to minimise false positives</li>
+<li> "Zapping" all the pixels in each object in the final list by replacing bad pixels by the average of the "good" neighbors</li>
+</ol>
 
-<h1>License</h1>
+<h2>
+<a id="compatibility-and-dependencies" class="anchor" href="#compatibility-and-dependencies" aria-hidden="true"><span class="octicon octicon-link"></span></a>Compatibility and dependencies<a id="sec-1-1" name="sec-1-1"></a>
+</h2>
 
-<p>BSD</p>
+<p>Spotless has been tested on Python 2.7, 3.3, and 3.4. </p>
+
+<p>It depends on the following third-party libraries:</p>
+
+<ul>
+<li>  <a href="http://www.numpy.org">Numpy</a> and <a href="http://www.scipy.org/install.html">Scipy</a>
+
+<ul>
+<li>  If you are using a full-featured scientific python distribution such as <a href="http://continuum.io/downloads.html">Anaconda</a> then you already have these.</li>
+</ul>
+</li>
+<li>  <a href="http://scikit-image.org">Scikits Image</a>
+
+<ul>
+<li>  <code>conda install scikits-image</code>
+</li>
+</ul>
+</li>
+<li>  Either <a href="http://www.astropy.org">Astropy</a> (recommended) or PyFITS (no longer maintained)
+
+<ul>
+<li>  <code>conda install astropy</code>
+</li>
+</ul>
+</li>
+<li>  <a href="https://pypi.python.org/pypi/pyregion">Pyregion</a>
+
+<ul>
+<li>  <code>pip install pyregion</code>
+</li>
+<li>  At time of writing (27 Nov 2014) this is not available in the Anaconda repository, but it can be installed from the Python Package Index using <code>pip</code> or <code>easy_install</code>
+</li>
+</ul>
+</li>
+</ul>
+
+<h2>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Installation<a id="sec-1-2" name="sec-1-2"></a>
+</h2>
+
+<p>Spotless consists of a single python script <code>spotless.py</code> that you can either copy to somewhere on your python path (or your working directory), or just leave it where it is, in which case you will have to specify the full path every time you run it.</p>
+
+<h2>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Usage<a id="sec-1-3" name="sec-1-3"></a>
+</h2>
+
+<p>Basic usage: </p>
+
+<pre><code>python spotless.py INPUT_FILE
+</code></pre>
+
+<p>where <code>INPUT_FILE</code> is the name (without the <code>.fits</code> suffix) of the FITS file that you want to process.  An output file named <code>INPUT_FILE-cr.fits</code> will be produced.  </p>
+
+<h3>
+<a id="file-handling" class="anchor" href="#file-handling" aria-hidden="true"><span class="octicon octicon-link"></span></a>File handling<a id="sec-1-3-1" name="sec-1-3-1"></a>
+</h3>
+
+<p>By default, spotless will process the HDU named <code>SCI</code> in the input
+file if it is found, otherwise the first HDU will be used.  A
+different HDU may be specified by using the <code>--hdu-name</code> option.</p>
+
+<p>The extra string that is added to the name of the output file (default: <code>cr</code>) may be changed using the <code>--output-id</code> option.</p>
+
+<h3>
+<a id="specifying-the-pixel-rejection-method-to-use" class="anchor" href="#specifying-the-pixel-rejection-method-to-use" aria-hidden="true"><span class="octicon octicon-link"></span></a>Specifying the pixel-rejection method to use<a id="sec-1-3-2" name="sec-1-3-2"></a>
+</h3>
+
+<p>Three different methods are available for choosing which pixels to reject.  In all cases, the result is a list of candidate "bad pixel objects", each of which is a contiguous region of pixels that are deemed to be bad.  This list is then pruned according to additional criteria discussed below to give a final list of bad pixel objects. </p>
+
+<ol>
+<li>
+<p>Simple threshold</p>
+
+<p>This method simply rejects all pixels with values greater than a certain value.<br>
+To use <em>only</em> this method, specify the options <code>--method thresh --threshold VALUE</code> where <code>VALUE</code> is the value of the threshold.   The option <code>--threshold VALUE</code> can also be used at the same time as another method, in which case the two methods are combined. </p>
+</li>
+<li>
+<p>Edge detection followed by hole filling</p>
+
+<p>This is currently the default method so no option is required, but it can also be explicitly selected with <code>--method edge=</code>.  The option <code>--data-range MIN MAX</code> should be used to specify the approximate minimum and maximum values of the image brightness.  There is also an option <code>--use-log-scale</code>, which sometimes improves the results for images with a large dynamic range.  </p>
+</li>
+<li>
+<p>Segmentation via watershed transform of the elevation map</p>
+
+<p>This method does not seem to work very well, and so is not recommended.  If you want to try it anyway, the option <code>--method segment</code> should be specified. </p>
+</li>
+</ol>
+
+<h3>
+<a id="pruning-the-list-of-bad-pixel-objects" class="anchor" href="#pruning-the-list-of-bad-pixel-objects" aria-hidden="true"><span class="octicon octicon-link"></span></a>Pruning the list of bad pixel objects<a id="sec-1-3-3" name="sec-1-3-3"></a>
+</h3>
+
+<p>The pixel-rejection methods all tend to produce a large number of false positives.  Many of these can be effectively pruned with a few simple criteria.  Each candidate object is checked to make sure it is sufficiently small, sufficiently circular, and not a dark region.  The details of these checks can be controlled with the options <code>--dmax</code>, <code>--ddmax</code>, <code>--reject-filaments</code>, and <code>--allow-shadows</code>.  See the Command line reference (See section 1.4) below for details. </p>
+
+<h3>
+<a id="manually-excluding-and-including-regions" class="anchor" href="#manually-excluding-and-including-regions" aria-hidden="true"><span class="octicon octicon-link"></span></a>Manually excluding and including regions<a id="sec-1-3-4" name="sec-1-3-4"></a>
+</h3>
+
+<p>The option <code>--exclude-regions-from-file FILENAME.reg</code> allows you to specify a DS9 region file for exclusion from the algorithm.  All regions in this file will be marked as "good".  That is, no cosmic ray detection will be performed inside the regions.  It is often necessary to use this option to protect known stars in your image (unless you want the stars to be zapped). </p>
+
+<p>Contrariwise, the option <code>--include-regions-from-file FILENAME.reg</code> allows you to specify known "bad" regions.  All regions in this file will be automatically added to the final list of bad pixel objects to be zapped.  </p>
+
+<h3>
+<a id="which-images-are-saved" class="anchor" href="#which-images-are-saved" aria-hidden="true"><span class="octicon octicon-link"></span></a>Which images are saved<a id="sec-1-3-5" name="sec-1-3-5"></a>
+</h3>
+
+<p>By default, the <code>SCI</code> HDU in the output file has had all its final bad pixels zapped (but if the option <code>--only-bad-pix</code> is specified then it is just copied through unchanged from the input file).  A further HDU named <code>badpix</code> is  written to the output file, which is a logical mask of the pixels that were zapped. Any additional HDUs in the input file are copied through unchanged. </p>
+
+<p>If the option <code>--debug</code> is specified then several extra image HDUs are saved to the output file.  It the case of the <code>edge</code> method these are: <code>scaled</code>, <code>edges</code>, <code>candidates</code>, and <code>labels</code>. </p>
+
+<p>In addition, a file <code>INPUT_FILE-objects.tab</code> is written with a table that lists the label number (corresponding to the <code>labels</code> image), sizes, and pruning criteria for all the candidate bad pixel objects. </p>
+
+<h3>
+<a id="examples" class="anchor" href="#examples" aria-hidden="true"><span class="octicon octicon-link"></span></a>Examples<a id="sec-1-3-6" name="sec-1-3-6"></a>
+</h3>
+
+<pre><code>python spotless.py  --data-range 0 10.0 --allow-shadows --output-id cr --verbose --debug F547M
+</code></pre>
+
+<h2>
+<a id="command-line-reference" class="anchor" href="#command-line-reference" aria-hidden="true"><span class="octicon octicon-link"></span></a>Command line reference<a id="sec-1-4" name="sec-1-4"></a>
+</h2>
+
+<pre><code>python spotless.py --help
+
+usage: spotless.py [-h] [--hdu-name HDU_NAME] [--output-id OUTPUT_ID]
+                   [--method {thresh,edge,segment}] [--onlybadpix]
+                   [--threshold THRESHOLD] [--dmax DMAX] [--ddmax DDMAX]
+                   [--data-range MIN MAX] [--use-log-scale]
+                   [--segment-pars LO HI]
+                   [--edge-pars SIGMA LOW_THRESHOLD HIGH_THRESHOLD]
+                   [--thick-edges] [--reject-filaments] [--allow-shadows]
+                   [--clip-negative]
+                   [--exclude-regions-from-file EXCLUDE_REGIONS_FROM_FILE]
+                   [--include-regions-from-file INCLUDE_REGIONS_FROM_FILE]
+                   [--verbose] [--debug] [--multi-hdu]
+                   fitsfile
+
+Remove cosmic rays and other bad pixels from an image
+
+positional arguments:
+  fitsfile              Name of input image FITS file (sans extension)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --hdu-name HDU_NAME   Which HDU to use from the FITS file (default: SCI)
+  --output-id OUTPUT_ID
+                        Extra string to add to output filename to
+                        differentiate from the input file (default: cr)
+  --method {thresh,edge,segment}
+                        Algorithm to use to find the bad pixels (default:
+                        edge)
+  --onlybadpix          Only calculate the bad pixel map - do not replace
+                        pixels in the image (default: False)
+  --threshold THRESHOLD
+                        Assume any pixel above this level is bad (default:
+                        None)
+  --dmax DMAX           Maximum diameter of features to zap. Leave alone any
+                        roughly circular objects that are larger than this.
+                        (default: 5)
+  --ddmax DDMAX         Absolute maximum diameter of features to zap. Leave
+                        alone any objects that are larger than this, whatever
+                        their shape may be. (default: 10)
+  --data-range MIN MAX  Range for data scaling (default: None)
+  --use-log-scale       Use logarithmic data scaling (default: False)
+  --segment-pars LO HI  For 'segment' method only: thresholds of scaled data
+                        to seed the good/bad regions (default: (0.0, 1.0))
+  --edge-pars SIGMA LOW_THRESHOLD HIGH_THRESHOLD
+                        For 'edge' method only: parameters for the Canny edge
+                        detection algorithm. See: http://scikits-
+                        image.org/docs/dev/auto_examples/plot_canny.html
+                        (default: (1.0, 0.1, 0.2))
+  --thick-edges         Make the edges be 3 pixels wide instead of the default
+                        1 (default: False)
+  --reject-filaments    Try to reject objects that look filamentary, since
+                        they are probably not cosmic rays (default: False)
+  --allow-shadows       Also remove objects that are darker than their
+                        surroudings (not generally advised, especially if you
+                        have dark globules in your image!) (default: False)
+  --clip-negative       Also remove all negative pixels (default: False)
+  --exclude-regions-from-file EXCLUDE_REGIONS_FROM_FILE
+                        Read DS9 regions from a file, which are to be marked
+                        as definite good pixels (default: None)
+  --include-regions-from-file INCLUDE_REGIONS_FROM_FILE
+                        Read DS9 regions from a file, which are to be marked
+                        as definite bad pixels (default: None)
+  --verbose, -v         Print informative progress messages (default: False)
+  --debug, -d           Save auxiliary images of intermediate steps (default:
+                        False)
+  --multi-hdu, -m       Only provided for backward compatibility - this
+                        behavior is now the default. Work in multi-HDU mode.
+                        This assumes that the image is in the "SCI" HDU in the
+                        input file (the argument --hdu-index is ignored). All
+                        additional HDUs in the input file are copied through
+                        to the output file. Only one output file is written,
+                        all auxilliary arrays ("edges", "labels", "badpix",
+                        etc) are written as additional HDUs in the same file.
+                        (default: True)
+</code></pre>
       </section>
-      <footer>
-        <p>This project is maintained by <a href="https://github.com/deprecated">deprecated</a></p>
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
-      </footer>
     </div>
-    <script src="javascripts/scale.fix.js"></script>
+    <footer>
+      <p>Project maintained by <a href="https://github.com/deprecated">deprecated</a></p>
+      <p>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></p>
+    </footer>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
     
   </body>
 </html>
