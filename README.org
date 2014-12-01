@@ -3,3 +3,117 @@
 
 A python program for removing cosmic rays, stitching artifacts, and (optionally) stars from an astronomical image or spectrum
 
+
+
+** Compatibility and dependencies
+Spotless has been tested on Python 2.7, 3.3, and 3.4. 
+
+It depends on the following third-party libraries:
++ [[http://www.numpy.org][Numpy]] and [[http://www.scipy.org/install.html][Scipy]]
+  + If you are using a full-featured scientific python distribution such as [[http://continuum.io/downloads.html][Anaconda]] then you already have these.
++ Scikits Image
+  + =conda install scikits-image=
++ Either [[http://www.astropy.org][Astropy]] (recommended) or PyFITS (no longer maintained)
+  + =conda install astropy=
++ [[https://pypi.python.org/pypi/pyregion][Pyregion]]
+  + =pip install pyregion=
+  + At time of writing (27 Nov 2014) this is not available in the Anaconda repository, but it can be installed from the Python Package Index using =pip= or =easy_install=
+
+** Installation
+Spotless consists of a single python script =spotless.py= that you can either copy to somewhere on your python path (or your working directory), or just leave it where it is, in which case you will have to specify the full path every time you run it.
+
+** Usage
+Basic usage: 
+#+BEGIN_EXAMPLE
+python spotless.py --multi-hdu -output-id cr INPUT_FILE
+#+END_EXAMPLE
+where =INPUT_FILE= is the name (without the =.fits= suffix) of the FITS file that you want to process.  This will process the HDU named ='SCI'= in the input file if it is found, otherwise the first HDU will be used.  An output file named =INPUT_FILE-cr.fits= will be produced
+
+*** File handling
+By default, spotless will process the first HDU found in the input file
+*** Examples
+#+BEGIN_SRC sh
+python spotless.py  --data-range 0 10.0 --multi-hdu --allow-shadows --output-id cr --verbose --debug F547M
+#+END_SRC
+
+** Command line reference
+#+BEGIN_SRC sh :exports both :results verbatim
+python spotless.py --help
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+usage: spotless.py [-h] [--hdu-index HDU_INDEX] [--output-id OUTPUT_ID]
+                   [--method {thresh,edge,segment}] [--onlybadpix]
+                   [--threshold THRESHOLD] [--dmax DMAX] [--ddmax DDMAX]
+                   [--data-range MIN MAX] [--use-log-scale]
+                   [--segment-pars LO HI]
+                   [--edge-pars SIGMA LOW_THRESHOLD HIGH_THRESHOLD]
+                   [--thick-edges] [--reject-filaments] [--allow-shadows]
+                   [--clip-negative]
+                   [--exclude-regions-from-file EXCLUDE_REGIONS_FROM_FILE]
+                   [--include-regions-from-file INCLUDE_REGIONS_FROM_FILE]
+                   [--verbose] [--debug] [--multi-hdu]
+                   fitsfile
+
+Remove cosmic rays and other bad pixels from an image
+
+positional arguments:
+  fitsfile              Name of image FITS file (sans extension)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --hdu-index HDU_INDEX
+                        Which HDU to use from the FITS file (default: 0)
+  --output-id OUTPUT_ID
+                        Extra string to add to output filenames to aid in
+                        layer identification (default: )
+  --method {thresh,edge,segment}
+                        Algorithm to use to find the bad pixels (default:
+                        edge)
+  --onlybadpix          Only calculate the bad pixel map - do not replace
+                        pixels in the image (default: False)
+  --threshold THRESHOLD
+                        Assume any pixel above this level is bad (default:
+                        None)
+  --dmax DMAX           Maximum diameter of features to zap. Leave alone any
+                        roughly circular objects that are larger than this.
+                        (default: 5)
+  --ddmax DDMAX         Absolute maximum diameter of features to zap. Leave
+                        alone any objects that are larger than this, whatever
+                        their shape may be. (default: 10)
+  --data-range MIN MAX  Range for data scaling (default: None)
+  --use-log-scale       Use logarithmic data scaling (default: False)
+  --segment-pars LO HI  For 'segment' method only: thresholds of scaled data
+                        to seed the good/bad regions (default: (0.0, 1.0))
+  --edge-pars SIGMA LOW_THRESHOLD HIGH_THRESHOLD
+                        For 'edge' method only: parameters for the Canny edge
+                        detection algorithm. See: http://scikits-
+                        image.org/docs/dev/auto_examples/plot_canny.html
+                        (default: (1.0, 0.1, 0.2))
+  --thick-edges         Make the edges be 3 pixels wide instaed of the default
+                        1 (default: False)
+  --reject-filaments    Try to reject objects that look filamentary, since
+                        they are probably not cosmic rays (default: False)
+  --allow-shadows       Also remove objects that are darker than their
+                        surroudings (not generally advised, especially if you
+                        have dark globules in your image!) (default: False)
+  --clip-negative       Also remove all negative pixels (default: False)
+  --exclude-regions-from-file EXCLUDE_REGIONS_FROM_FILE
+                        Read DS9 regions from a file, which are to be marked
+                        as definite good pixels (default: None)
+  --include-regions-from-file INCLUDE_REGIONS_FROM_FILE
+                        Read DS9 regions from a file, which are to be marked
+                        as definite bad pixels (default: None)
+  --verbose, -v         Print informative progress messages (default: False)
+  --debug, -d           Save auxiliary images of intermediate steps (default:
+                        False)
+  --multi-hdu, -m       Work in multi-HDU mode. This assumes that the image is
+                        in the "SCI" HDU in the input file (the argument
+                        --hdu-index is ignored). All additional HDUs in the
+                        input file are copied through to the output file. Only
+                        one output file is written, all auxilliary arrays
+                        ("edges", "labels", "badpix", etc) are written as
+                        additional HDUs in the same file. (default: False)
+#+end_example
+
