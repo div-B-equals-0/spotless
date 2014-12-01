@@ -15,7 +15,7 @@ Spotless has been tested on Python 2.7, 3.3, and 3.4.
 It depends on the following third-party libraries:
 + [[http://www.numpy.org][Numpy]] and [[http://www.scipy.org/install.html][Scipy]]
   + If you are using a full-featured scientific python distribution such as [[http://continuum.io/downloads.html][Anaconda]] then you already have these.
-+ Scikits Image
++ [[http://scikit-image.org][Scikits Image]]
   + =conda install scikits-image=
 + Either [[http://www.astropy.org][Astropy]] (recommended) or PyFITS (no longer maintained)
   + =conda install astropy=
@@ -34,8 +34,9 @@ python spotless.py INPUT_FILE
 where =INPUT_FILE= is the name (without the =.fits= suffix) of the FITS file that you want to process.  An output file named =INPUT_FILE-cr.fits= will be produced.  
 
 *** File handling
-By default, spotless will process the HDU named ='SCI'= in the input
-file if it is found, otherwise the first HDU will be used.  A different HDU may be specified by using the =--hdu-name= option. 
+By default, spotless will process the HDU named =SCI= in the input
+file if it is found, otherwise the first HDU will be used.  A
+different HDU may be specified by using the =--hdu-name= option.
 
 The extra string that is added to the name of the output file (default: =cr=) may be changed using the =--output-id= option.
 *** Specifying the pixel-rejection method to use
@@ -57,11 +58,11 @@ The option =--exclude-regions-from-file FILENAME.reg= allows you to specify a DS
 Contrariwise, the option =--include-regions-from-file FILENAME.reg= allows you to specify known "bad" regions.  All regions in this file will be automatically added to the final list of bad pixel objects to be zapped.  
 
 *** Which images are saved
-By default, the ='SCI'= HDU in the output file has had all its final bad pixels zapped (but if the option =--only-bad-pix= is specified then it is just copied through unchanged from the input file).  A further HDU named ='badpix'= is  written to the output file, which is a logical mask of the pixels that were zapped. Any additional HDUs in the input file are copied through unchanged. 
+By default, the =SCI= HDU in the output file has had all its final bad pixels zapped (but if the option =--only-bad-pix= is specified then it is just copied through unchanged from the input file).  A further HDU named =badpix= is  written to the output file, which is a logical mask of the pixels that were zapped. Any additional HDUs in the input file are copied through unchanged. 
 
-If the option =--debug= is specified then several extra HDUs are saved to the output file.  It the case of the =edge= method these are: ='scaled'=, ='edges'=, ='candidates'=, and ='labels'=. 
+If the option =--debug= is specified then several extra image HDUs are saved to the output file.  It the case of the =edge= method these are: =scaled=, =edges=, =candidates=, and =labels=. 
 
-In addition, a file =INPUT_FILE-objects.tab= is written with a table that lists the label number (corresponding to the ='labels'= image), sizes, and pruning criteria for all the candidate bad pixel objects. 
+In addition, a file =INPUT_FILE-objects.tab= is written with a table that lists the label number (corresponding to the =labels= image), sizes, and pruning criteria for all the candidate bad pixel objects. 
 
 *** Examples
 #+BEGIN_SRC sh
