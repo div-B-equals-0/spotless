@@ -143,11 +143,15 @@ if cmd_args.method == "thresh":
 else:
     # Remaining methods use scikits image
     # which requires float arrays in range 0.0 -> 1.0
-    if not cmd_args.data_range[-1]:
+    try: 
+        datamin, datamax = cmd_args.data_range
+    except TypeError:
         # fallback to using the actual data limits if no range specified
         datamin, datamax = inhdu.data.min(), inhdu.data.max()
-    else:
-        datamin, datamax = cmd_args.data_range
+        print("""Warning: Data limits not specified. Using {:.2e} to {:.2e}. 
+This may be overridden with the option --data-range MIN MAX""".format(datamin,
+                                                                      datamax))
+ 
     # Scale so that [datamin, datamax] -> [0, 1]
     if cmd_args.use_log_scale:
         # logarithmic scale
