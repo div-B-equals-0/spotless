@@ -1,1 +1,0 @@
-doc/spotless-intro.md

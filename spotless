@@ -12,7 +12,14 @@ except ImportError:
     # But fall back to pyfits version if not found
     import pyfits
 
-import skimage.filter
+try:
+    from skimage.feature import canny
+    from skimage.filters import sobel
+except ImportError:
+    # Old versions of scikit-image
+    # Why did they change the name? Maybe because of the built-in command
+    from skimage.filter import canny, sobel
+
 import skimage.morphology
 from skimage.morphology import erosion, dilation
 import pyregion
@@ -178,8 +185,8 @@ This may be overridden with the option --data-range MIN MAX""".format(datamin,
         # Edge detection followed by filling in of holes
         sig, lo, hi = cmd_args.edge_pars
         # use Canny edge detector
-        edges = skimage.filter.canny(scaled_data, sigma=sig,
-                                     low_threshold=lo, high_threshold=hi)
+        edges = canny(scaled_data, sigma=sig,
+                      low_threshold=lo, high_threshold=hi)
         if cmd_args.verbose:
             print("Edge detection with Canny method complete")
         if cmd_args.thick_edges:
@@ -212,7 +219,7 @@ This may be overridden with the option --data-range MIN MAX""".format(datamin,
         #
         # First, we use Sobel filter to find the magnitude of the
         # gradient of the image
-        elevation_map = skimage.filter.sobel(scaled_data)
+        elevation_map = sobel(scaled_data)
         if cmd_args.verbose:
             print("Elevation map calculation via \
             Sobel gradient filter complete")

@@ -7,13 +7,13 @@ The cosmic ray removal process has three stages:
 3. "Zapping" all the pixels in each object in the final list by replacing bad pixels by the average of the "good" neighbors
 
 * Compatibility and dependencies
-Spotless has been tested on Python 2.7, 3.3, and 3.4. 
+Spotless has been tested on Python 2.7, 3.3, 3.4, and 3.5. 
 
 It depends on the following third-party libraries:
 + [[http://www.numpy.org][Numpy]] and [[http://www.scipy.org/install.html][Scipy]]
   + If you are using a full-featured scientific python distribution such as [[http://continuum.io/downloads.html][Anaconda]] then you already have these.
-+ [[http://scikit-image.org][Scikits Image]]
-  + =conda install scikits-image=
++ [[http://scikit-image.org][Scikit Image]]
+  + =conda install scikit-image=
 + Either [[http://www.astropy.org][Astropy]] (recommended) or PyFITS (no longer maintained)
   + =conda install astropy=
 + [[https://pypi.python.org/pypi/pyregion][Pyregion]]
@@ -152,7 +152,7 @@ optional arguments:
 #+end_example
 
 
-* Export options                                                   :noexport:
+* COMMENT Export options                          :noexport:
 #+TITLE: Spotless
 #+AUTHOR: William Henney
 #+OPTIONS: ':nil *:t -:t ::t <:t H:3 \n:nil ^:{} arch:headline
